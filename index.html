@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isolated Orbit: Mission Control</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', 'Courier', monospace;
+            background: #02020a;
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        /* Simple Space Background - No 3D transforms that cause cube shape */
+        .space-container {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .celestial-body {
+            position: absolute;
+            border-radius: 50%;
+        }
+
+        .earth {
+            width: 150px; height: 150px;
+            top: 8%; left: 5%;
+            background: radial-gradient(circle at 30% 30%, #66b3ff, #007bff, #004080);
+            box-shadow: 0 0 30px rgba(102, 179, 255, 0.5);
+        }
+        .earth::after {
+            content: ''; position: absolute; top: 65%; left: 20%; width: 45px; height: 22px;
+            background: rgba(76, 175, 80, 0.7); border-radius: 50%;
+        }
+        .earth::before {
+            content: ''; position: absolute; top: 45%; left: 60%; width: 35px; height: 18px;
+            background: rgba(76, 175, 80, 0.6); border-radius: 50%;
+        }
+
+        .mars {
+            width: 120px; height: 120px;
+            bottom: 10%; right: 8%;
+            background: radial-gradient(circle at 40% 40%, #ff8c66, #cc4d2e, #802a15);
+            box-shadow: 0 0 25px rgba(255, 140, 102, 0.4);
+        }
+        .mars::after {
+            content: ''; position: absolute; top: 35%; left: 25%; width: 25px; height: 15px;
+            background: rgba(160, 82, 45, 0.8); border-radius: 50%;
+        }
+
+        .moon {
+            width: 45px; height: 45px;
+            top: 20%; right: 10%;
+            background: radial-gradient(circle, #f0f0f0, #c0c0c0, #909090);
+            box-shadow: 0 0 15px rgba(240,240,240,0.3);
+        }
+        .moon::after {
+            content: ''; position: absolute; top: 10px; left: 10px; width: 8px; height: 8px;
+            background: rgba(0,0,0,0.3); border-radius: 50%;
+        }
+        .moon::before {
+            content: ''; position: absolute; top: 18px; right: 8px; width: 6px; height: 6px;
+            background: rgba(0,0,0,0.25); border-radius: 50%;
+        }
+
+        .stars {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: -1;
+        }
+        .star {
+            position: absolute; width: 2px; height: 2px;
+            background: #fff; border-radius: 50%;
+            animation: twinkle 2s infinite alternate;
+        }
+        @keyframes twinkle { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+        .container { max-width: 1000px; margin: 0 auto; position: relative; z-index: 10; }
+        header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; }
+        h1 {
+            font-size: 2.5rem; color: #00ffcc; text-shadow: 0 0 15px #00ffcc;
+            letter-spacing: 3px; margin-bottom: 10px;
+        }
+        .mission-id {
+            font-size: 1.1rem; color: #00ccff;
+            text-shadow: 0 0 8px #00ccff; letter-spacing: 2px;
+        }
+        .character-panel {
+            display: flex; justify-content: center; gap: 30px;
+            margin-bottom: 25px; flex-wrap: wrap;
+        }
+        .character {
+            text-align: center; padding: 18px 25px;
+            background: rgba(0,30,50,0.8); border: 2px solid #00ffcc;
+            border-radius: 15px; box-shadow: 0 0 15px rgba(0,255,204,0.2);
+            min-width: 200px; transition: transform 0.3s;
+        }
+        .character:hover { transform: scale(1.05); }
+        .character-name { font-size: 1.4rem; font-weight: bold; color: #ff66cc; text-shadow: 0 0 10px #ff66cc; }
+        .character-role { font-size: 0.95rem; color: #00ccff; margin-top: 5px; letter-spacing: 1px; }
+        .difficulty-selector { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+        .difficulty-btn {
+            padding: 12px 28px; font-size: 1rem; font-family: inherit; font-weight: bold;
+            border: 2px solid #00ffcc; background: rgba(0,20,40,0.8);
+            color: #fff; border-radius: 8px; cursor: pointer; transition: all 0.3s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .difficulty-btn:hover, .difficulty-btn.active {
+            background: #00ffcc; color: #000; box-shadow: 0 0 20px #00ffcc;
+        }
+        #start-screen { text-align: center; padding: 45px; background: rgba(0,20,40,0.95);
+            border: 2px solid #00ffcc; border-radius: 15px; margin-bottom: 30px; }
+        #start-screen h2 { font-size: 2rem; color: #00ffcc; margin-bottom: 20px; }
+        .story-text { font-size: 1.1rem; line-height: 1.8; margin-bottom: 20px;
+            color: #ccffff; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; }
+        .start-btn {
+            padding: 16px 45px; font-size: 1.3rem; font-family: inherit; font-weight: bold;
+            background: linear-gradient(45deg, #00ffcc, #00ccff); color: #000;
+            border: none; border-radius: 8px; cursor: pointer; animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 10px #00ffcc; } 50% { box-shadow: 0 0 20px #00ccff; } }
+        #game-screen { display: none; }
+        .resources-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+        @media (max-width: 768px) { .resources-container { grid-template-columns: 1fr; } }
+        .resource-card { background: rgba(0,20,40,0.9); border: 1px solid #00ffcc; border-radius: 12px; padding: 18px; text-align: center; }
+        .resource-card.critical { border-color: #ff3333; box-shadow: 0 0 15px rgba(255,51,51,0.5); }
+        .resource-icon { font-size: 3rem; margin-bottom: 10px; }
+        .resource-name { font-size: 1.1rem; font-weight: bold; color: #00ffcc; margin-bottom: 10px; letter-spacing: 1px; }
+        .resource-bar-container { background: rgba(0,0,0,0.6); border-radius: 6px; height: 35px; margin-bottom: 10px; overflow: hidden; }
+        .resource-bar { height: 100%; border-radius: 6px; transition: width 0.5s ease; box-shadow: 0 0 15px currentColor; }
+        .resource-value { font-size: 1.6rem; font-weight: bold; color: #fff; }
+        .resource-label { font-size: 0.9rem; color: #aaa; letter-spacing: 1px; }
+        .day-tracker { text-align: center; margin-bottom: 30px; padding: 20px;
+            background: rgba(0,20,40,0.9); border: 2px solid #00ffcc; border-radius: 10px; }
+        .day-counter { font-size: 2.5rem; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ffcc00; letter-spacing: 2px; }
+        .event-counter { font-size: 1.1rem; color: #ff66cc; margin-top: 8px; letter-spacing: 1px; }
+        .progress-container { margin-top: 20px; }
+        .progress-bar { background: rgba(0,0,0,0.6); height: 12px; border-radius: 6px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #00ffcc, #00ccff); transition: width 0.5s ease; box-shadow: 0 0 15px #00ffcc; }
+        .progress-text { margin-top: 8px; font-size: 0.9rem; color: #00ccff; }
+        .event-card { background: rgba(0,20,40,0.95); border: 2px solid #00ccff; border-radius: 15px;
+            padding: 30px; margin-bottom: 30px; position: relative; box-shadow: 0 0 20px rgba(0,204,255,0.2); }
+        .event-card::before {
+            content: "ALERT"; position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+            background: #ff3333; color: #fff; padding: 6px 25px; border-radius: 5px; font-weight: bold;
+            box-shadow: 0 0 10px rgba(255,51,51,0.5);
+        }
+        .event-title { font-size: 1.6rem; color: #ff66cc; margin-bottom: 15px; letter-spacing: 1px; }
+        .event-description { font-size: 1rem; line-height: 1.7; margin-bottom: 20px; color: #ccffff; }
+        .character-quote { background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; margin: 8px 0; font-size: 0.9rem; }
+        .character-quote.yuzu { border-left: 4px solid #00ffcc; color: #ccffff; }
+        .character-quote.riko { border-left: 4px solid #ff66cc; color: #ffd1e8; }
+        .choices-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .choices-container { grid-template-columns: 1fr; } }
+        .choice-btn { padding: 22px; font-size: 1rem; font-family: inherit; border: 2px solid; border-radius: 12px; cursor: pointer; transition: all 0.3s; text-align: left; background: rgba(0,20,40,0.9); }
+        .choice-a { border-color: #00ffcc; color: #00ffcc; }
+        .choice-a:hover { background: #00ffcc; color: #000; box-shadow: 0 0 20px #00ffcc; }
+        .choice-b { border-color: #ff66cc; color: #ff66cc; }
+        .choice-b:hover { background: #ff66cc; color: #000; box-shadow: 0 0 20px #ff66cc; }
+        .choice-effect { margin-top: 10px; font-size: 0.85rem; font-weight: bold; }
+        .fact-box { background: rgba(0,100,200,0.3); border-left: 5px solid #00ccff; padding: 18px; margin-top: 20px;
+            font-size: 0.95rem; line-height: 1.7; color: #ccffff; border-radius: 8px; }
+        .fact-box::before {
+            content: "NASA SCIENCE FACT"; display: block; font-weight: bold; color: #00ccff;
+            margin-bottom: 10px; text-transform: uppercase; font-size: 0.8rem;
+        }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95);
+            z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+        .modal-content { text-align: center; max-width: 500px; width: 100%; padding: 45px;
+            background: rgba(0,20,40,0.98); border: 3px solid #00ffcc; border-radius: 15px; box-shadow: 0 0 40px rgba(0,255,204,0.6); }
+        .modal-title { font-size: 2.6rem; margin-bottom: 20px; letter-spacing: 2px; }
+        .modal-text { font-size: 1.2rem; line-height: 1.9; margin-bottom: 30px; color: #ccffff; }
+        .modal-btn { padding: 16px 45px; font-size: 1.2rem; font-family: inherit; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .modal-btn.primary { background: linear-gradient(45deg, #00ffcc, #00ccff); color: #000; box-shadow: 0 0 15px #00ffcc; }
+        .modal-btn.secondary { background: rgba(0,0,0,0.5); border: 2px solid #ff66cc; color: #ff66cc; margin-top: 12px; }
+        .modal-btn:hover { transform: scale(1.05); }
+        .win-screen .modal-title { color: #00ffcc; text-shadow: 0 0 25px #00ffcc; }
+        .loss-screen .modal-title { color: #ff3333; text-shadow: 0 0 25px #ff3333; }
+        .sound-toggle { position: fixed; top: 20px; right: 20px; background: rgba(0,20,40,0.85);
+            border: 1px solid #00ffcc; color: #00ffcc; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-family: inherit; z-index: 1001; }
+        .sound-toggle:hover { background: #00ffcc; color: #000; }
+    </style>
+</head>
+<body>
+    <div class="space-container">
+        <div class="earth"></div>
+        <div class="moon"></div>
+        <div class="stars" id="stars"></div>
+        <div class="mars"></div>
+    </div>
+    <button class="sound-toggle" onclick="toggleSound()" id="sound-btn">Sound: ON</button>
+    <div class="container">
+        <header>
+            <h1>ISOLATED ORBIT</h1>
+            <div class="mission-id">Mission Control Dashboard - Sol Mission</div>
+        </header>
+        <div class="character-panel">
+            <div class="character">
+                <div class="character-name">YUZU</div>
+                <div class="character-role">Lead Engineer</div>
+            </div>
+            <div class="character">
+                <div class="character-name">RIKO</div>
+                <div class="character-role">Science Officer</div>
+            </div>
+        </div>
+        <div class="difficulty-selector">
+            <button class="difficulty-btn active" data-difficulty="easy">Easy</button>
+            <button class="difficulty-btn" data-difficulty="normal">Normal</button>
+            <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+            <button class="difficulty-btn" data-difficulty="expert">Expert</button>
+        </div>
+        <div id="start-screen">
+            <h2>Mission Briefing</h2>
+            <div class="story-text">
+                <p><strong>Captain Yuzu and Science Officer Riko</strong> are aboard the Mars Habitat Alpha, orbiting Mars on a historic 10-Sol mission to test long-term life support systems for future Martian colonization.</p>
+                <p>As Mission Control, you'll manage critical resources: Power, Oxygen, Food, and Radiation Shielding. Every decision has consequences, and with solar storms and dust events brewing, you'll need to make tough choices to keep your crew safe.</p>
+                <p><strong>Remember:</strong> In space, every kilowatt-hour, every breath, and every gram of food counts. Choose wisely!</p>
+            </div>
+            <button class="start-btn" onclick="startGame()">INITIALIZE MISSION</button>
+        </div>
+        <div id="game-screen">
+            <div class="resources-container">
+                <div class="resource-card" id="resource-power">
+                    <div class="resource-icon">⚡</div>
+                    <div class="resource-name">POWER</div>
+                    <div class="resource-bar-container"><div class="resource-bar" id="power-bar" style="width: 100%;"></div></div>
+                    <div class="resource-value" id="power-value">100</div>
+                    <div class="resource-label">Kilowatt-hours</div>
+                </div>
+                <div class="resource-card" id="resource-oxygen">
+                    <div class="resource-icon">💨</div>
+                    <div class="resource-name">OXYGEN</div>
+                    <div class="resource-bar-container"><div class="resource-bar" id="oxygen-bar" style="width: 100%;"></div></div>
+                    <div class="resource-value" id="oxygen-value">100</div>
+                    <div class="resource-label">Atmospheric Pressure</div>
+                </div>
+                <div class="resource-card" id="resource-food">
+                    <div class="resource-icon">🌾</div>
+                    <div class="resource-name">FOOD</div>
+                    <div class="resource-bar-container"><div class="resource-bar" id="food-bar" style="width: 100%;"></div></div>
+                    <div class="resource-value" id="food-value">100</div>
+                    <div class="resource-label">Calories</div>
+                </div>
+                <div class="resource-card" id="resource-radiation">
+                    <div class="resource-icon">🛡️</div>
+                    <div class="resource-name">RADIATION</div>
+                    <div class="resource-bar-container"><div class="resource-bar" id="radiation-bar" style="width: 100%;"></div></div>
+                    <div class="resource-value" id="radiation-value">100</div>
+                    <div class="resource-label">Shielding Level</div>
+                </div>
+            </div>
+            <div class="day-tracker">
+                <div class="day-counter">SOL <span id="current-sol">1</span></div>
+                <div class="event-counter"><span id="events-today">0</span> events today</div>
+                <div class="progress-container">
+                    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 0%;"></div></div>
+                    <div class="progress-text" id="progress-text">Day 1 of 10</div>
+                </div>
+            </div>
+            <div class="event-card">
+                <div class="event-title" id="event-title">Event Title</div>
+                <div class="event-description" id="event-description">
+                    <div class="character-quote yuzu" id="quote-yuzu">Yuzu dialogue</div>
+                    <div class="character-quote riko" id="quote-riko">Riko dialogue</div>
+                    <div id="event-main-text">Event description goes here.</div>
+                </div>
+                <div class="choices-container">
+                    <button class="choice-btn choice-a" onclick="makeChoice('a')">
+                        <strong>Option A</strong><br><span class="choice-effect" id="effect-a"></span>
+                    </button>
+                    <button class="choice-btn choice-b" onclick="makeChoice('b')">
+                        <strong>Option B</strong><br><span class="choice-effect" id="effect-b"></span>
+                    </button>
+                </div>
+                <div class="fact-box"><span id="science-fact">NASA Science Fact goes here.</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal win-screen" id="win-modal">
+        <div class="modal-content">
+            <h2 class="modal-title">MISSION COMPLETE!</h2>
+            <p class="modal-text">Congratulations! You've successfully completed the 10-Sol mission. Captain Yuzu and Science Officer Riko are safe. The data you've gathered will help future missions to Mars succeed.</p>
+            <button class="modal-btn primary" onclick="restartGame()">START NEW MISSION</button>
+        </div>
+    </div>
+    <div class="modal loss-screen" id="loss-modal">
+        <div class="modal-content">
+            <h2 class="modal-title">CRITICAL FAILURE</h2>
+            <p class="modal-text">The mission has failed. One or more critical resources have been depleted. Review your decisions and try again to save your crew.</p>
+            <button class="modal-btn primary" onclick="restartGame()">RETRY MISSION</button>
+            <button class="modal-btn secondary" onclick="restartGame()">MAIN MENU</button>
+        </div>
+    </div>
+    <script>
+        let gameState = { difficulty: 'normal', resources: { power: 100, oxygen: 100, food: 100, radiation: 100 }, currentSol: 1, maxSols: 10, eventsCompleted: 0, eventsToday: 0, maxEventsPerDay: 3, soundEnabled: true };
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            if (audioContext.state === 'suspended') audioContext.resume();
+            const oscillator = audioContext.createOscillator(); const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode); gainNode.connect(audioContext.destination);
+            if (type === 'alert') { oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(800, audioContext.currentTime); oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.5); gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5); oscillator.start(); oscillator.stop(audioContext.currentTime + 0.5); }
+            else if (type === 'success') { oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(400, audioContext.currentTime); oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1); oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2); gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5); oscillator.start(); oscillator.stop(audioContext.currentTime + 0.5); }
+            else if (type === 'critical') { oscillator.type = 'square'; oscillator.frequency.setValueAtTime(150, audioContext.currentTime); oscillator.frequency.linearRampToValueAtTime(100, audioContext.currentTime + 0.3); gainNode.gain.setValueAtTime(0.5, audioContext.currentTime); gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3); oscillator.start(); oscillator.stop(audioContext.currentTime + 0.3); }
+            else if (type === 'click') { oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(1200, audioContext.currentTime); gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1); oscillator.start(); oscillator.stop(audioContext.currentTime + 0.1); }
+        }
+        function toggleSound() { gameState.soundEnabled = !gameState.soundEnabled; document.getElementById('sound-btn').textContent = gameState.soundEnabled ? 'Sound: ON' : 'Sound: OFF'; }
+        const events = { easy: [{ title: "Solar Flare Alert", description: "A solar flare detected by NASA DONKI is approaching Mars. Yuzu and Riko discuss the threat.", yuzuQuote: "We need radiation shielding! This could damage the habitat.", rikoQuote: "Let's conserve power first. We can't waste it.", choiceA: { text: "Activate Full Radiation Shielding", effects: { radiation: 25, power: -5, oxygen: -1, food: 0 }, yuzuQuote: "Good call! Shielding is up at 100%.", rikoQuote: "That used minimal power but we're safe.", fact: "Solar flares can release billions of hydrogen bombs worth of energy. NASA DONKI monitors these events to protect astronauts." }, choiceB: { text: "Minimize Non-Essential Power Usage", effects: { radiation: 0, power: -3, oxygen: 0, food: 0 }, yuzuQuote: "Hope this was the right call...", rikoQuote: "We're exposed but conserving resources.", fact: "Without proper shielding, solar radiation increases cancer risk. Mars lacks Earth's protective magnetic field." }, fact: "Solar flares can disrupt communications and increase radiation exposure. NASA monitors solar activity 24/7." }, { title: "Dust Storm on Mars", description: "A dust storm has begun on Mars. Yuzu and Riko assess the damage.", yuzuQuote: "We're losing solar power fast! Emergency backup?", rikoQuote: "The air filtration systems are working overtime.", choiceA: { text: "Run Emergency Power Backup", effects: { radiation: 0, power: -10, oxygen: 8, food: -1 }, yuzuQuote: "Backup generators online. Oxygen levels stable.", rikoQuote: "Good. We used some reserves.", fact: "Martian dust storms can block 99% of sunlight, limiting solar power generation." }, choiceB: { text: "Conserve Power with Rationing", effects: { radiation: 0, power: -5, oxygen: -5, food: 0 }, yuzuQuote: "CO2 levels are rising. We need more oxygen!", rikoQuote: "Rationing is strict but necessary.", fact: "Dust storms on Mars can last for weeks. The Curiosity rover entered safe mode during a 2018 global storm." }, fact: "The 2018 global dust storm ended NASA's Opportunity rover mission after 14 years." }, { title: "Hydroponic System Failure", description: "The food production hydroponics system has a pump failure.", yuzuQuote: "I can fix it with the spare parts...", rikoQuote: "Or we use reserves for now.", choiceA: { text: "Use Reserve Food Supplies", effects: { radiation: 0, power: -1, oxygen: 0, food: -10 }, yuzuQuote: "Starting the reserves. Hope they last.", rikoQuote: "We'll need to replant after this.", fact: "NASA VEGGIE system grows leafy greens using hydroponics. Critical for long-duration missions." }, choiceB: { text: "Repair the System", effects: { radiation: 0, power: -5, oxygen: 5, food: 0 }, yuzuQuote: "It's working again! Back to normal.", rikoQuote: "Good work. We saved the reserves.", fact: "Astronauts on ISS have grown lettuce, radishes, and zinnias using VEGGIE modules." }, fact: "Growing food in space reduces mission costs and provides fresh nutrients." }, { title: "Oxygen Scrubber Malfunction", description: "CO2 scrubbers are losing efficiency. Crew is getting tired.", yuzuQuote: "Emergency oxygen release needed!", rikoQuote: "Or we activate the backup scrubbers.", choiceA: { text: "Emergency Oxygen Release", effects: { radiation: 0, power: -5, oxygen: -5, food: -3 }, yuzuQuote: "Oxygen levels are stable now.", rikoQuote: "That used some emergency reserves...", fact: "ISS uses lithium hydroxide canisters to scrub CO2. Maintains 14.7 psi pressure." }, choiceB: { text: "Activate Backup Scrubbers", effects: { radiation: 0, power: -8, oxygen: 8, food: 0 }, yuzuQuote: "Backup scrubbers online. CO2 dropping.", rikoQuote: "Power usage is higher but we're safe.", fact: "ISS recycles 93% of water from urine and sweat. Vital for Mars missions." }, fact: "ISS recycles urine into drinking water. Essential for multi-year missions." }, { title: "Water Leak Detected", description: "A small leak in water recycling system. Every drop counts.", yuzuQuote: "We need to seal it now!", rikoQuote: "Or use drinking water reserves.", choiceA: { text: "Emergency Repairs", effects: { radiation: 0, power: -5, oxygen: 5, food: 0 }, yuzuQuote: "Sealant applied. Leak stopped.", rikoQuote: "Good. We kept the drinking water.", fact: "ISS recycles water from urine, sweat, and humidity. 93% efficiency." }, choiceB: { text: "Use Drinking Water Reserves", effects: { radiation: 0, power: -1, oxygen: -3, food: -5 }, yuzuQuote: "Drinking water is going down...", rikoQuote: "We'll need to purify more later.", fact: "Astronauts drink recycled water. Converts urine through multiple filtration stages." }, fact: "ISS produces 18 gallons of water daily from recycled sources. Life-saving tech for Mars." } ], normal: [{ title: "Solar Flare Alert", description: "Radiation spike incoming. We have minutes to react!", yuzuQuote: "Deploy shielding immediately!", rikoQuote: "We need to balance resources carefully.", choiceA: { text: "Activate Full Radiation Shielding", effects: { radiation: 20, power: -8, oxygen: -2, food: -1 }, yuzuQuote: "Shielding at maximum! We're safe.", rikoQuote: "Power usage is a bit higher than expected...", fact: "Solar flares can release billions of hydrogen bombs worth of energy." }, choiceB: { text: "Optimized Power Management", effects: { radiation: -2, power: -5, oxygen: -1, food: -1 }, yuzuQuote: "Rationing power. We're vulnerable.", rikoQuote: "Minimal exposure, but we'll pay later.", fact: "Without shielding, solar radiation increases cancer risk for astronauts." }, fact: "Solar flares disrupt communications and increase radiation exposure." }, { title: "Dust Storm on Mars", description: "Visibility at zero. Solar generation at 2%!", yuzuQuote: "Emergency systems must activate!", rikoQuote: "We need to protect the crew first.", choiceA: { text: "Emergency Power Backup", effects: { radiation: -1, power: -15, oxygen: 6, food: -3 }, yuzuQuote: "Generators running at capacity!", rikoQuote: "The food reserves are depleting...", fact: "Martian dust storms can block 99% of sunlight." }, choiceB: { text: "Strategic Rationing", effects: { radiation: -2, power: -8, oxygen: -8, food: -1 }, yuzuQuote: "Strict rationing. CO2 rising.", rikoQuote: "We'll need to restart scrubbers soon.", fact: "Dust storms on Mars can last for weeks." }, fact: "The 2018 global dust storm ended Opportunity rover after 14 years." }, { title: "Hydroponic System Failure", description: "Pump's not working. Crops are wilting!", yuzuQuote: "I'll rebuild the pump from parts.", rikoQuote: "We should use the emergency food first.", choiceA: { text: "Emergency Food Reserves", effects: { radiation: -1, power: -3, oxygen: -1, food: -15 }, yuzuQuote: "Starting the emergency food.", rikoQuote: "These won't last as long as fresh crops.", fact: "NASA VEGGIE system grows leafy greens on ISS." }, choiceB: { text: "DIY Repair", effects: { radiation: -2, power: -10, oxygen: 4, food: -1 }, yuzuQuote: "Pump is fixed! But we used power.", rikoQuote: "Good. The crops are saved.", fact: "Astronauts grown lettuce, radishes, and zinnias on ISS." }, fact: "Growing food in space reduces costs and provides fresh nutrients." }, { title: "Oxygen Scrubber Malfunction", description: "CO2 at 3000ppm! Headaches starting!", yuzuQuote: "We need oxygen NOW!", rikoQuote: "Or we can override the backup system.", choiceA: { text: "Emergency Oxygen Release", effects: { radiation: -2, power: -8, oxygen: -10, food: -4 }, yuzuQuote: "Emergency oxygen released!", rikoQuote: "That was some of our reserves...", fact: "ISS uses lithium hydroxide canisters to scrub CO2." }, choiceB: { text: "Backup Scrubber Override", effects: { radiation: -4, power: -12, oxygen: 10, food: -3 }, yuzuQuote: "Backup scrubbers at 100%!", rikoQuote: "Power spike but CO2 is dropping.", fact: "ISS recycles 93% of water from urine and sweat." }, fact: "ISS recycles urine into drinking water. Vital for Mars missions." }, { title: "Micrometeoroid Impact", description: "Small impact on hull! Radiation spike detected!", yuzuQuote: "Seal the module immediately!", rikoQuote: "Or deploy the emergency shield.", choiceA: { text: "Seal Module A", effects: { radiation: 12, power: -12, oxygen: -6, food: -3 }, yuzuQuote: "Module sealed. Crew safe.", rikoQuote: "We lost some resources from that module...", fact: "ISS has Whipple shields to vaporize micrometeoroids." }, choiceB: { text: "Deploy Emergency Shield", effects: { radiation: 20, power: -15, oxygen: -3, food: -4 }, yuzuQuote: "Emergency shield deployed!", rikoQuote: "That used some of our backup shielding...", fact: "Micrometeoroids travel at 25,000+ mph. Tiny particles can damage hulls." }, fact: "ISS windows have been replaced due to micrometeoroid damage." }, { title: "Solar Panel Alignment Issue", description: "Solar generation down 60%. Batteries are low!", yuzuQuote: "Manual re-alignment needed!", rikoQuote: "Or we draw from battery reserve.", choiceA: { text: "Manual Re-alignment", effects: { radiation: -1, power: -20, oxygen: 6, food: -3 }, yuzuQuote: "Solar panels tracking again!", rikoQuote: "We used power but gained solar.", fact: "ISS solar arrays generate 120 kW of power." }, choiceB: { text: "Draw from Battery Reserve", effects: { radiation: -4, power: -10, oxygen: -10, food: -5 }, yuzuQuote: "Batteries depleting fast!", rikoQuote: "We'll need to conserve everything.", fact: "ISS batteries can power station for 45 minutes during orbital night." }, fact: "Martian days are 24 hours 37 minutes. Solar varies with dust and seasons." } ], hard: [{ title: "Solar Flare Alert", description: "Alert level 5! We have 10 minutes to react!", yuzuQuote: "Deploy ALL shielding systems!", rikoQuote: "We must conserve power across the board.", choiceA: { text: "Max Shielding with Full Power", effects: { radiation: 30, power: -18, oxygen: -6, food: -5 }, yuzuQuote: "All shielding at maximum! We're safe!", rikoQuote: "That's a lot of power but we're safe.", fact: "Solar flares can release billions of hydrogen bombs worth of energy." }, choiceB: { text: "Minimal Shielding, Maximum Conservation", effects: { radiation: -8, power: -10, oxygen: -5, food: -6 }, yuzuQuote: "We're minimally protected...", rikoQuote: "We'll survive but risks are higher.", fact: "Without shielding, solar radiation increases cancer risk." }, fact: "Solar flares disrupt communications and increase radiation exposure." }, { title: "Dust Storm on Mars", description: "Storm intensity: extreme! Solar generation: 1%!", yuzuQuote: "Emergency protocols: activate!", rikoQuote: "We need to secure all systems.", choiceA: { text: "Emergency Power Backup", effects: { radiation: -3, power: -25, oxygen: 10, food: -8 }, yuzuQuote: "All backup generators online!", rikoQuote: "The food reserves are critical now...", fact: "Martian dust storms can block 99% of sunlight." }, choiceB: { text: "Strict Rationing Protocol", effects: { radiation: -5, power: -15, oxygen: -18, food: -3 }, yuzuQuote: "Strict rationing activated.", rikoQuote: "CO2 levels will take days to recover.", fact: "Dust storms on Mars can last for weeks." }, fact: "The 2018 global dust storm ended Opportunity rover after 14 years." }, { title: "Hydroponic System Failure", description: "Pump destroyed! Entire crop yield lost!", yuzuQuote: "I can rebuild the system!", rikoQuote: "Or we switch to 100% emergency reserves.", choiceA: { text: "Emergency Food (100%)", effects: { radiation: -3, power: -10, oxygen: -3, food: -25 }, yuzuQuote: "Emergency food only. This won't last.", rikoQuote: "We'll need to restart hydroponics soon.", fact: "NASA VEGGIE system grows leafy greens on ISS." }, choiceB: { text: "Full System Rebuild", effects: { radiation: -5, power: -22, oxygen: 8, food: -5 }, yuzuQuote: "System rebuilt! But we used massive power.", rikoQuote: "The crops will regrow in time.", fact: "Astronauts grown lettuce, radishes, and zinnias on ISS." }, fact: "Growing food in space reduces costs and provides fresh nutrients." }, { title: "Oxygen Scrubber Malfunction", description: "CO2 at 6000ppm! Crew is collapsing!", yuzuQuote: "Emergency oxygen release NOW!", rikoQuote: "Or we activate the redundant system.", choiceA: { text: "Emergency Oxygen Release", effects: { radiation: -5, power: -12, oxygen: -15, food: -8 }, yuzuQuote: "Oxygen released! Crew stabilizing.", rikoQuote: "Emergency reserves are going fast...", fact: "ISS uses lithium hydroxide canisters to scrub CO2." }, choiceB: { text: "Redundant Scrubber System", effects: { radiation: -8, power: -22, oxygen: 12, food: -6 }, yuzuQuote: "Redundant scrubbers online!", rikoQuote: "Power is critical but CO2 is dropping.", fact: "ISS recycles 93% of water from urine and sweat." }, fact: "ISS recycles urine into drinking water. Vital for Mars missions." }, { title: "Micrometeoroid Impact", description: "Multiple hull breaches! Radiation at 400mSv/hour!", yuzuQuote: "Deploy emergency shielding everywhere!", rikoQuote: "We must isolate all damaged modules.", choiceA: { text: "Full Module Isolation", effects: { radiation: 20, power: -25, oxygen: -15, food: -8 }, yuzuQuote: "Isolation complete. Modules lost.", rikoQuote: "The crew will be cramped now...", fact: "ISS has Whipple shields to vaporize micrometeoroids." }, choiceB: { text: "Emergency Shield Deployment", effects: { radiation: 30, power: -28, oxygen: -8, food: -12 }, yuzuQuote: "All shields deployed!", rikoQuote: "That's our last backup shielding...", fact: "Micrometeoroids travel at 25,000+ mph." }, fact: "ISS windows have been replaced due to micrometeoroid damage." }, { title: "Water Leak Detected", description: "Water loss: 100 gallons/hour! Emergency protocols!", yuzuQuote: "Seal all water lines immediately!", rikoQuote: "Or we use the drinking water reserves.", choiceA: { text: "Emergency Repairs", effects: { radiation: -3, power: -15, oxygen: 5, food: -5 }, yuzuQuote: "Leaks sealed! But repairs cost power.", rikoQuote: "We kept the drinking water reserves.", fact: "ISS recycles water from urine, sweat, and humidity." }, choiceB: { text: "Drinking Water Reserve", effects: { radiation: -8, power: -6, oxygen: -12, food: -18 }, yuzuQuote: "Using drinking water now.", rikoQuote: "This will affect crew health...", fact: "Astronauts drink recycled water through multiple filtration stages." }, fact: "ISS produces 18 gallons of water daily from recycled sources." }, { title: "Solar Panel Alignment Issue", description: "Power critical! Shields need power NOW!", yuzuQuote: "Manual alignment or battery draw?", rikoQuote: "We're losing power faster than expected.", choiceA: { text: "Manual Re-alignment", effects: { radiation: -3, power: -28, oxygen: 8, food: -8 }, yuzuQuote: "Arrays aligned! Solar capture increased.", rikoQuote: "We used a lot of power reserves...", fact: "ISS solar arrays generate 120 kW of power." }, choiceB: { text: "Draw from Battery Reserve", effects: { radiation: -8, power: -12, oxygen: -20, food: -12 }, yuzuQuote: "Battery draw activated!", rikoQuote: "We'll have no power left soon...", fact: "ISS batteries can power station for 45 minutes." }, fact: "Martian days are 24 hours 37 minutes." }, { title: "Radiation Spike Detected", description: "Level 7 alert! Shields at minimum!", yuzuQuote: "Move to shielded shelter immediately!", rikoQuote: "Or try to boost our shielding.", choiceA: { text: "Move to Shielded Shelter", effects: { radiation: 35, power: -18, oxygen: -10, food: -6 }, yuzuQuote: "Shelter activated. Radiation down.", rikoQuote: "We're cramped but safe.", fact: "NASA RAD measured radiation on Mars during 2017 solar event." }, choiceB: { text: "Boost Shielding", effects: { radiation: 20, power: -25, oxygen: -12, food: -8 }, yuzuQuote: "Shielding boost complete!", rikoQuote: "That used a lot of power but saved us.", fact: "Mars has no global magnetic field. Shielding is crucial." }, fact: "Average radiation dose on Mars is 0.64 mSv per day." }, { title: "Food Storage Failure", description: "Temperature at 75F! Spoilage imminent!", yuzuQuote: "Emergency relocation of food!", rikoQuote: "Or we use shelf-stable supplies.", choiceA: { text: "Emergency Food Relocation", effects: { radiation: -4, power: -18, oxygen: 5, food: -15 }, yuzuQuote: "Food relocated! The spoilage stopped.", rikoQuote: "The fresh food is saved for now.", fact: "Space food is freeze-dried or thermostabilized to last 18+ months." }, choiceB: { text: "Shelf-Stable Supplies Only", effects: { radiation: -5, power: -10, oxygen: -8, food: -22 }, yuzuQuote: "Switched to shelf-stable only.", rikoQuote: "The crew won't like the menu...", fact: "NASA Deep Space Food Challenge seeks innovations." }, fact: "Deep Space Food Challenge inspires new food production systems." }, { title: "Atmospheric Pressure Drop", description: "Pressure dropping at 2 psi/hour! Critical failure!", yuzuQuote: "Seal all hatches immediately!", rikoQuote: "Or we inject emergency oxygen.", choiceA: { text: "Seal All Hatches", effects: { radiation: -3, power: -12, oxygen: -18, food: -8 }, yuzuQuote: "All hatches sealed. Pressure stabilized.", rikoQuote: "We lost communication with several modules.", fact: "Habitats must maintain 14.7 psi like Earth." }, choiceB: { text: "Emergency Oxygen Injection", effects: { radiation: -12, power: -22, oxygen: 12, food: -8 }, yuzuQuote: "Emergency oxygen injected!", rikoQuote: "That was most of our reserve...", fact: "ISS has multiple oxygen sources: tanks, electrolysis." }, fact: "Mars atmospheric pressure is only 0.6% of Earth's." } ], expert: [{ title: "Solar Flare Alert", description: "Level 9 alert! We have 5 minutes!", yuzuQuote: "Deploy ALL systems now!", rikoQuote: "We must make every resource count!", choiceA: { text: "Maximum Shielding Protocol", effects: { radiation: 38, power: -28, oxygen: -12, food: -8 }, yuzuQuote: "Maximum shielding deployed!", rikoQuote: "Power and oxygen reserves critically low.", fact: "Solar flares can release billions of hydrogen bombs worth of energy." }, choiceB: { text: "Extreme Conservation", effects: { radiation: -12, power: -12, oxygen: -8, food: -12 }, yuzuQuote: "We're extremely vulnerable...", rikoQuote: "This is our last resort...", fact: "Without shielding, solar radiation increases cancer risk." }, fact: "Solar flares disrupt communications and increase radiation exposure." }, { title: "Dust Storm on Mars", description: "Storm intensity: extreme! Solar generation: 0.5%!", yuzuQuote: "Emergency protocols: activate!", rikoQuote: "We need to secure all systems.", choiceA: { text: "Emergency Power Backup", effects: { radiation: -5, power: -35, oxygen: 12, food: -12 }, yuzuQuote: "All backup generators online!", rikoQuote: "The food reserves are critical now...", fact: "Martian dust storms can block 99% of sunlight." }, choiceB: { text: "Strict Rationing Protocol", effects: { radiation: -8, power: -22, oxygen: -25, food: -5 }, yuzuQuote: "Strict rationing activated.", rikoQuote: "CO2 levels will take days to recover.", fact: "Dust storms on Mars can last for weeks." }, fact: "The 2018 global dust storm ended Opportunity rover after 14 years." }, { title: "Hydroponic System Failure", description: "Pump destroyed! Entire crop yield lost!", yuzuQuote: "I can rebuild the system!", rikoQuote: "Or we switch to 100% emergency reserves.", choiceA: { text: "Emergency Food (100%)", effects: { radiation: -5, power: -12, oxygen: -6, food: -32 }, yuzuQuote: "Emergency food only. This won't last.", rikoQuote: "We'll need to restart hydroponics soon.", fact: "NASA VEGGIE system grows leafy greens on ISS." }, choiceB: { text: "Full System Rebuild", effects: { radiation: -8, power: -32, oxygen: 8, food: -8 }, yuzuQuote: "System rebuilt! But we used massive power.", rikoQuote: "The crops will regrow in time.", fact: "Astronauts grown lettuce, radishes, and zinnias on ISS." }, fact: "Growing food in space reduces costs and provides fresh nutrients." }, { title: "Oxygen Scrubber Malfunction", description: "CO2 at 8000ppm! Crew is collapsing!", yuzuQuote: "Emergency oxygen release NOW!", rikoQuote: "Or we activate the redundant system.", choiceA: { text: "Emergency Oxygen Release", effects: { radiation: -8, power: -18, oxygen: -22, food: -12 }, yuzuQuote: "Oxygen released! Crew stabilizing.", rikoQuote: "Emergency reserves are gone...", fact: "ISS uses lithium hydroxide canisters to scrub CO2." }, choiceB: { text: "Redundant Scrubber System", effects: { radiation: -10, power: -28, oxygen: 14, food: -8 }, yuzuQuote: "Redundant scrubbers online!", rikoQuote: "Power is critical but CO2 is dropping.", fact: "ISS recycles 93% of water from urine and sweat." }, fact: "ISS recycles urine into drinking water. Vital for Mars missions." }, { title: "Micrometeoroid Impact", description: "Multiple hull breaches! Radiation at 500mSv/hour!", yuzuQuote: "Deploy emergency shielding everywhere!", rikoQuote: "We must isolate all damaged modules.", choiceA: { text: "Full Module Isolation", effects: { radiation: 28, power: -32, oxygen: -22, food: -12 }, yuzuQuote: "Isolation complete. 2 modules lost.", rikoQuote: "The crew will be cramped now...", fact: "ISS has Whipple shields to vaporize micrometeoroids." }, choiceB: { text: "Emergency Shield Deployment", effects: { radiation: 40, power: -35, oxygen: -15, food: -15 }, yuzuQuote: "All shields deployed!", rikoQuote: "That's our last backup shielding...", fact: "Micrometeoroids travel at 25,000+ mph." }, fact: "ISS windows have been replaced due to micrometeoroid damage." }, { title: "Water Leak Detected", description: "Water loss: 100 gallons/hour! Emergency protocols!", yuzuQuote: "Seal all water lines immediately!", rikoQuote: "Or we use the drinking water reserves.", choiceA: { text: "Emergency Repairs", effects: { radiation: -5, power: -25, oxygen: 6, food: -8 }, yuzuQuote: "Leaks sealed! But repairs cost power.", rikoQuote: "We kept the drinking water reserves.", fact: "ISS recycles water from urine, sweat, and humidity." }, choiceB: { text: "Drinking Water Reserve", effects: { radiation: -10, power: -10, oxygen: -22, food: -25 }, yuzuQuote: "Using drinking water now.", rikoQuote: "This will affect crew health...", fact: "Astronauts drink recycled water through multiple filtration stages." }, fact: "ISS produces 18 gallons of water daily from recycled sources." }, { title: "Solar Panel Alignment Issue", description: "Power critical! Shields need power NOW!", yuzuQuote: "Manual alignment or battery draw?", rikoQuote: "We're losing power faster than expected.", choiceA: { text: "Manual Re-alignment", effects: { radiation: -5, power: -38, oxygen: 10, food: -12 }, yuzuQuote: "Arrays aligned! Solar capture increased.", rikoQuote: "We used most of our power reserves...", fact: "ISS solar arrays generate 120 kW of power." }, choiceB: { text: "Draw from Battery Reserve", effects: { radiation: -10, power: -18, oxygen: -28, food: -15 }, yuzuQuote: "Battery draw activated!", rikoQuote: "We'll have no power left soon...", fact: "ISS batteries can power station for 45 minutes." }, fact: "Martian days are 24 hours 37 minutes." }, { title: "Radiation Spike Detected", description: "Level 7 alert! Shields at minimum!", yuzuQuote: "Move to shielded shelter immediately!", rikoQuote: "Or try to boost our shielding.", choiceA: { text: "Move to Shielded Shelter", effects: { radiation: 42, power: -28, oxygen: -12, food: -8 }, yuzuQuote: "Shelter activated. Radiation down.", rikoQuote: "We're cramped but safe.", fact: "NASA RAD measured radiation on Mars during 2017 solar event." }, choiceB: { text: "Boost Shielding", effects: { radiation: 28, power: -38, oxygen: -15, food: -12 }, yuzuQuote: "Shielding boost complete!", rikoQuote: "That used massive power but saved us.", fact: "Mars has no global magnetic field. Shielding is crucial." }, fact: "Average radiation dose on Mars is 0.64 mSv per day." }, { title: "Food Storage Failure", description: "Temperature at 80F! Spoilage imminent!", yuzuQuote: "Emergency relocation of food!", rikoQuote: "Or we use shelf-stable supplies.", choiceA: { text: "Emergency Food Relocation", effects: { radiation: -8, power: -28, oxygen: 6, food: -22 }, yuzuQuote: "Food relocated! The spoilage stopped.", rikoQuote: "The fresh food is saved for now.", fact: "Space food is freeze-dried or thermostabilized." }, choiceB: { text: "Shelf-Stable Supplies Only", effects: { radiation: -10, power: -15, oxygen: -15, food: -32 }, yuzuQuote: "Switched to shelf-stable only.", rikoQuote: "The crew won't like the menu...", fact: "NASA Deep Space Food Challenge seeks innovations." }, fact: "Deep Space Food Challenge inspires new food production systems." }, { title: "Atmospheric Pressure Drop", description: "Pressure dropping at 2 psi/hour! Critical failure!", yuzuQuote: "Seal all hatches immediately!", rikoQuote: "Or we inject emergency oxygen.", choiceA: { text: "Seal All Hatches", effects: { radiation: -5, power: -22, oxygen: -28, food: -12 }, yuzuQuote: "All hatches sealed. Pressure stabilized.", rikoQuote: "We lost communication with several modules.", fact: "Habitats must maintain 14.7 psi like Earth." }, choiceB: { text: "Emergency Oxygen Injection", effects: { radiation: -18, power: -35, oxygen: 18, food: -12 }, yuzuQuote: "Emergency oxygen injected!", rikoQuote: "That was our last reserve...", fact: "ISS has multiple oxygen sources: tanks, electrolysis." }, fact: "Mars atmospheric pressure is only 0.6% of Earth's." }, { title: "Crew Medical Emergency", description: "Decompression sickness! We need oxygen for treatment!", yuzuQuote: "Medical chamber ready!", rikoQuote: "But we need to spare oxygen...", choiceA: { text: "Full Medical Treatment", effects: { radiation: -3, power: -18, oxygen: -15, food: -8 }, yuzuQuote: "Patient stable! Medical treatment complete.", rikoQuote: "We used significant medical reserves...", fact: "NASA has detailed medical protocols for space emergencies." }, choiceB: { text: "Conservative Treatment", effects: { radiation: -5, power: -10, oxygen: -10, food: -20 }, yuzuQuote: "Minimal treatment given.", rikoQuote: "The patient is stable but monitoring needed.", fact: "Space medicine requires careful resource allocation." }, fact: "NASA Human Research Program studies effects of spaceflight on health." } ] };
+        const difficultyMultipliers = { easy: { startPower: 130, startOxygen: 130, startFood: 130, startRadiation: 130, maxEventsPerDay: 2 }, normal: { startPower: 100, startOxygen: 100, startFood: 100, startRadiation: 100, maxEventsPerDay: 3 }, hard: { startPower: 80, startOxygen: 80, startFood: 80, startRadiation: 80, maxEventsPerDay: 4 }, expert: { startPower: 60, startOxygen: 60, startFood: 60, startRadiation: 60, maxEventsPerDay: 5 } };
+        function initStars() { const starsContainer = document.getElementById('stars'); for (let i = 0; i < 100; i++) { const star = document.createElement('div'); star.className = 'star'; star.style.left = Math.random() * 100 + '%'; star.style.top = Math.random() * 100 + '%'; star.style.animationDelay = Math.random() * 2 + 's'; starsContainer.appendChild(star); } }
+        function startGame() { playSound('click'); const difficulty = document.querySelector('.difficulty-btn.active').dataset.difficulty; gameState.difficulty = difficulty; const multipliers = difficultyMultipliers[difficulty]; gameState.resources = { power: multipliers.startPower, oxygen: multipliers.startOxygen, food: multipliers.startFood, radiation: multipliers.startRadiation }; gameState.currentSol = 1; gameState.eventsCompleted = 0; gameState.eventsToday = 0; document.getElementById('start-screen').style.display = 'none'; document.getElementById('game-screen').style.display = 'block'; updateUI(); nextEvent(); }
+        function updateUI() { updateResourceBar('power', gameState.resources.power); updateResourceBar('oxygen', gameState.resources.oxygen); updateResourceBar('food', gameState.resources.food); updateResourceBar('radiation', gameState.resources.radiation); document.getElementById('current-sol').textContent = gameState.currentSol; document.getElementById('events-today').textContent = gameState.eventsToday; const progressPercent = ((gameState.currentSol - 1) / gameState.maxSols) * 100; document.getElementById('progress-fill').style.width = progressPercent + '%'; document.getElementById('progress-text').textContent = 'Day ' + gameState.currentSol + ' of ' + gameState.maxSols; checkGameOver(); }
+        function updateResourceBar(resource, value) { const bar = document.getElementById(resource + '-bar'); const valueEl = document.getElementById(resource + '-value'); const card = document.getElementById('resource-' + resource); const clampedValue = Math.max(0, Math.min(100, value)); card.dataset.originalValue = value; valueEl.textContent = Math.round(clampedValue); bar.style.width = clampedValue + '%'; if (clampedValue < 20) { bar.style.backgroundColor = '#ff3333'; card.classList.add('critical'); playSound('critical'); } else if (clampedValue < 50) { bar.style.backgroundColor = '#ffcc00'; card.classList.add('critical'); } else if (clampedValue < 80) { bar.style.backgroundColor = '#00ccff'; card.classList.remove('critical'); } else { bar.style.backgroundColor = '#00ffcc'; card.classList.remove('critical'); } return clampedValue; }
+        function checkGameOver() { if (gameState.resources.power <= 0 || gameState.resources.oxygen <= 0 || gameState.resources.food <= 0 || gameState.resources.radiation <= 0) { playSound('critical'); document.getElementById('loss-modal').style.display = 'flex'; return true; } if (gameState.currentSol > gameState.maxSols) { playSound('success'); document.getElementById('win-modal').style.display = 'flex'; return true; } return false; }
+        function nextEvent() { if (gameState.eventsToday >= difficultyMultipliers[gameState.difficulty].maxEventsPerDay) { playSound('success'); gameState.currentSol++; gameState.eventsToday = 0; updateUI(); if (gameState.currentSol > gameState.maxSols) { checkGameOver(); return; } alert('Sol ' + gameState.currentSol + ' starting... Good luck, Mission Control!'); return; } const availableEvents = events[gameState.difficulty].filter(event => !event.seen); if (availableEvents.length === 0) { events[gameState.difficulty].forEach(event => event.seen = false); return nextEvent(); } const randomEvent = availableEvents[Math.floor(Math.random() * availableEvents.length)]; randomEvent.seen = true; document.getElementById('event-title').textContent = randomEvent.title; document.getElementById('quote-yuzu').textContent = 'Yuzu: "' + randomEvent.yuzuQuote + '"'; document.getElementById('quote-riko').textContent = 'Riko: "' + randomEvent.rikoQuote + '"'; document.getElementById('event-main-text').textContent = randomEvent.description; document.getElementById('effect-a').innerHTML = '<strong>Option A:</strong> ' + randomEvent.choiceA.text + '<br>' + formatEffects(randomEvent.choiceA.effects); document.getElementById('effect-b').innerHTML = '<strong>Option B:</strong> ' + randomEvent.choiceB.text + '<br>' + formatEffects(randomEvent.choiceB.effects); document.getElementById('science-fact').textContent = randomEvent.fact; gameState.currentEvent = randomEvent; }
+        function formatEffects(effects) { const changes = []; for (const [resource, value] of Object.entries(effects)) { const symbol = value > 0 ? '+' : ''; changes.push(resource.charAt(0).toUpperCase() + resource.slice(1) + ': ' + symbol + value); } return changes.join(' | '); }
+        function makeChoice(choice) { playSound('click'); const event = gameState.currentEvent; const selectedChoice = choice === 'a' ? event.choiceA : event.choiceB; for (const [resource, value] of Object.entries(selectedChoice.effects)) { gameState.resources[resource] += value; gameState.resources[resource] = Math.max(0, Math.min(100, gameState.resources[resource])); } gameState.eventsToday++; updateUI(); checkGameOver(); if (gameState.resources.radiation < 30 || gameState.resources.oxygen < 30) { playSound('critical'); } else { playSound('success'); } setTimeout(nextEvent, 500); }
+        function restartGame() { playSound('click'); document.getElementById('win-modal').style.display = 'none'; document.getElementById('loss-modal').style.display = 'none'; events.easy.forEach(event => event.seen = false); events.normal.forEach(event => event.seen = false); events.hard.forEach(event => event.seen = false); events.expert.forEach(event => event.seen = false); document.getElementById('game-screen').style.display = 'none'; document.getElementById('start-screen').style.display = 'block'; }
+        document.querySelectorAll('.difficulty-btn').forEach(btn => { btn.addEventListener('click', function() { playSound('click'); document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); }); });
+        initStars();
+    </script>
+</body>
+</html>
